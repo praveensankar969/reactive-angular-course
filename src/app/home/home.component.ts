@@ -1,10 +1,13 @@
-import {Component, OnInit} from '@angular/core';
-import {Course, sortCoursesBySeqNo} from '../model/course';
-import {interval, noop, Observable, of, throwError, timer} from 'rxjs';
-import {catchError, delay, delayWhen, filter, finalize, map, retryWhen, shareReplay, tap} from 'rxjs/operators';
-import {HttpClient} from '@angular/common/http';
-import {MatDialog, MatDialogConfig} from '@angular/material/dialog';
-import {CourseDialogComponent} from '../course-dialog/course-dialog.component';
+import { Component, OnInit } from '@angular/core';
+import { Course, sortCoursesBySeqNo } from '../model/course';
+import { interval, noop, Observable, of, throwError, timer } from 'rxjs';
+import { catchError, delay, delayWhen, filter, finalize, map, retryWhen, shareReplay, tap } from 'rxjs/operators';
+import { HttpClient } from '@angular/common/http';
+import { MatDialog, MatDialogConfig } from '@angular/material/dialog';
+import { CourseDialogComponent } from '../course-dialog/course-dialog.component';
+import { CoursesService } from '../services/courses.services';
+import { EventEmitter } from 'events';
+import { LoadingService } from '../loading/loading.services';
 
 
 @Component({
@@ -14,29 +17,30 @@ import {CourseDialogComponent} from '../course-dialog/course-dialog.component';
 })
 export class HomeComponent implements OnInit {
 
-  beginnerCourses: Course[];
+  beginnerCourses$: Observable<Course[]>;
 
-  advancedCourses: Course[];
+  advancedCourses$: Observable<Course[]>;
 
-
-  constructor(private http: HttpClient, private dialog: MatDialog) {
+  constructor(private courseService: CoursesService, private dialog: MatDialog, private loadingService : LoadingService) {
 
   }
 
   ngOnInit() {
+    this.fetchDetail();
+  }
 
-    this.http.get('/api/courses')
-      .subscribe(
-        res => {
+  fetchDetail() {
+    const courses$ = this.courseService.getAllCourses().pipe(map(x => x.sort(sortCoursesBySeqNo)));
 
-          const courses: Course[] = res["payload"].sort(sortCoursesBySeqNo);
+    const loadedCourses = this.loadingService.untilcompletedLoading(courses$);
 
-          this.beginnerCourses = courses.filter(course => course.category == "BEGINNER");
+    this.beginnerCourses$ = loadedCourses.pipe(map(
+      res => res.filter(x => x.category == "BEGINNER")
+    ));
 
-          this.advancedCourses = courses.filter(course => course.category == "ADVANCED");
-
-        });
-
+    this.advancedCourses$ = loadedCourses.pipe(map(
+      res => res.filter(x => x.category == "ADVANCED")
+    ));
   }
 
   editCourse(course: Course) {
@@ -51,6 +55,9 @@ export class HomeComponent implements OnInit {
 
     const dialogRef = this.dialog.open(CourseDialogComponent, dialogConfig);
 
+    dialogRef.afterClosed().pipe(filter(val=> val!=null)).subscribe(()=>{
+      this.fetchDetail();
+    })  
   }
 
 }
