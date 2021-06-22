@@ -5,9 +5,10 @@ import { catchError, delay, delayWhen, filter, finalize, map, retryWhen, shareRe
 import { HttpClient } from '@angular/common/http';
 import { MatDialog, MatDialogConfig } from '@angular/material/dialog';
 import { CourseDialogComponent } from '../course-dialog/course-dialog.component';
-import { CoursesService } from '../services/courses.services';
 import { EventEmitter } from 'events';
 import { LoadingService } from '../loading/loading.services';
+import { MessagesService } from '../messages/messages.service';
+import { CoursesStore } from '../services/courses.store';
 
 
 @Component({
@@ -21,7 +22,7 @@ export class HomeComponent implements OnInit {
 
   advancedCourses$: Observable<Course[]>;
 
-  constructor(private courseService: CoursesService, private dialog: MatDialog, private loadingService : LoadingService) {
+  constructor(private courseStore: CoursesStore, private dialog: MatDialog) {
 
   }
 
@@ -30,17 +31,10 @@ export class HomeComponent implements OnInit {
   }
 
   fetchDetail() {
-    const courses$ = this.courseService.getAllCourses().pipe(map(x => x.sort(sortCoursesBySeqNo)));
 
-    const loadedCourses = this.loadingService.untilcompletedLoading(courses$);
+    this.beginnerCourses$ = this.courseStore.onFilterCategory("BEGINNER");
 
-    this.beginnerCourses$ = loadedCourses.pipe(map(
-      res => res.filter(x => x.category == "BEGINNER")
-    ));
-
-    this.advancedCourses$ = loadedCourses.pipe(map(
-      res => res.filter(x => x.category == "ADVANCED")
-    ));
+    this.advancedCourses$ = this.courseStore.onFilterCategory("ADVANCED");
   }
 
   editCourse(course: Course) {
